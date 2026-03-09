@@ -27,7 +27,8 @@ The repository provides both:
 
 ```
 
-github_repo/
+```
+onnx-int8-quantization-pipeline/
 │
 ├── README.md
 ├── accuracy_report.py
@@ -60,10 +61,9 @@ github_repo/
 │   └── 6_validate_benchmark.py
 │
 └── unified_pipeline/
-├── README.md
-└── quantize_pipeline.py
-
-````
+    ├── README.md
+    └── quantize_pipeline.py
+```
 
 ---
 
