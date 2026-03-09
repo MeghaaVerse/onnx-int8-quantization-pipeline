@@ -1,5 +1,4 @@
-Classification INT8 Quantization Pipeline
-=========================================
+# Classification INT8 Quantization Pipeline
 
 This folder contains a **step-by-step pipeline to convert an ONNX Classification model from FP32 to INT8** using **ONNX Runtime static QDQ quantization**.
 
@@ -7,127 +6,312 @@ The scripts allow you to **inspect, prepare, quantize, and validate classificati
 
 Each script represents **one stage of the quantization process**.
 
-Pipeline Overview
-=================
+---
+
+# Pipeline Overview
 
 The classification quantization workflow consists of the following stages:
 
-1.  Model inspection
-    
-2.  Node analysis
-    
-3.  Opset upgrade
-    
-4.  Shape inference preprocessing
-    
-5.  Static INT8 quantization
-    
-6.  Model verification
-    
-7.  Accuracy comparison
-    
+1. Model inspection
+2. Node analysis
+3. Opset upgrade
+4. Shape inference preprocessing
+5. Static INT8 quantization
+6. Model verification
+7. Accuracy comparison
 
-Folder Structure
-================
+---
+
+# Folder Structure
 
 ```
 classification/
 │
-├── 1_cls_architecture.py
-├── 1_check_classification_model.py
-├── 1_check_what_quantized.py
+├── 1_check_model.py
 ├── 2_find_nodes.py
-├── 3_upgrade_cls_opset.py
-├── 4_preprocess_cls_model.py
-├── 5_QDQ_quantize_256_cls_static.py
-├── 5_Qint8_quantize_cls.py
-├── 5_Quint8_cls_quantize.py
-├── 6_test_cls.py
-├── 6_verify_cls_static.py
-├── 7_cls_accuracy_report.py
-└── 7_benchmark_cls.py
-``` 
+├── 3_upgrade_opset.py
+├── 4_preprocess_model.py
+├── 5_quantize_static.py
+├── 6_verify_model.py
+└── 7_accuracy_report.py
+```
 
-Script Descriptions
-===================
+---
 
-### 1\_cls\_architecture.py
+# Step-by-Step Usage
 
-Analyzes the architecture of the classification model to understand layer composition and network structure.
+Replace `MODEL_PATH` with your classification ONNX model.
 
-### 1\_check\_classification\_model.py
+Example:
 
-Loads the ONNX classification model and verifies that it runs correctly using ONNX Runtime.
+```
+MODEL_PATH=/path/to/classification_model.onnx
+```
 
-### 1\_check\_what\_quantized.py
+---
 
-Inspects the model graph to determine which layers are quantized after INT8 conversion.
+# Step 1 — Model Inspection
 
-### 2\_find\_nodes.py
+Script:
 
-Lists all nodes in the ONNX graph and identifies layers that may require special handling during quantization.
+```
+1_check_model.py
+```
 
-### 3\_upgrade\_cls\_opset.py
+Purpose:
 
-Upgrades the ONNX model to a newer opset version to ensure compatibility with quantization tools.
+This script inspects the ONNX classification model and prints important information such as:
 
-### 4\_preprocess\_cls\_model.py
+* Model input name
+* Input tensor shape
+* Output tensor name
+* Opset version
+* Number of nodes
+* Operator types used
 
-Applies preprocessing steps such as shape inference and graph cleanup to prepare the model for quantization.
+Why this step matters:
 
-### 5\_QDQ\_quantize\_256\_cls\_static.py
+Understanding the **model architecture and operators** helps ensure the model is compatible with INT8 quantization.
 
-Performs **static QDQ INT8 quantization** using calibration images of size **256×256**.
+Example usage:
 
-### 5\_Qint8\_quantize\_cls.py
+```
+python3 1_check_model.py --model_path MODEL_PATH
+```
 
-Performs **QINT8 quantization** for experimentation and compatibility testing.
+---
 
-### 5\_Quint8\_cls\_quantize.py
+# Step 2 — Find Quantization-Sensitive Nodes
 
-Applies **QUINT8 quantization** for additional quantization comparison.
+Script:
 
-### 6\_test\_cls.py
+```
+2_find_nodes.py
+```
 
-Runs inference tests on the quantized model to ensure predictions are generated correctly.
+Purpose:
 
-### 6\_verify\_cls\_static.py
+Some operators may **not be suitable for quantization**.
 
-Validates the static INT8 model outputs against the original FP32 model.
+This script:
 
-### 7\_cls\_accuracy\_report.py
+* Lists all operators in the model
+* Identifies nodes that may cause quantization issues
+* Helps determine nodes that should be excluded
 
-Generates an **accuracy comparison report** between FP32 and INT8 classification results.
+Why this matters:
 
-### 7\_benchmark\_cls.py
+Prevents problems like:
 
-Benchmarks the quantized model to evaluate **inference speed improvements**.
+* Unsupported quantized operators
+* Incorrect activation ranges
+* Runtime failures after quantization
 
-Expected Output
-===============
+Example usage:
 
-After running the pipeline, you should obtain:
+```
+python3 2_find_nodes.py --model_path MODEL_PATH
+```
 
-*   INT8 quantized classification ONNX models
-    
-*   FP32 vs INT8 accuracy comparison reports
-    
-*   Inference benchmarking results
-    
-*   Quantization validation logs
-    
+---
 
-Notes
-=====
+# Step 3 — Upgrade ONNX Opset
 
-*   Always verify classification accuracy after quantization.
-    
-*   Calibration data should represent the **training data distribution**.
-    
-*   Some sensitive layers may remain in **FP32** to maintain model accuracy.
-    
+Script:
 
-License
-=======
+```
+3_upgrade_opset.py
+```
 
-This project is licensed under the **MIT License**.
+Purpose:
+
+Many classification models are exported with **older ONNX opsets (for example opset 11)**.
+
+This script upgrades the model to **opset 17**.
+
+Benefits:
+
+* Fixes `QuantizeLinear` / `DequantizeLinear` compatibility issues
+* Improves ONNX Runtime support
+* Enables modern operator behavior
+
+Example usage:
+
+```
+python3 3_upgrade_opset.py --model_path MODEL_PATH
+```
+
+Output:
+
+```
+model_opset17.onnx
+```
+
+---
+
+# Step 4 — Shape Inference Preprocessing
+
+Script:
+
+```
+4_preprocess_model.py
+```
+
+Purpose:
+
+This step runs **ONNX shape inference**.
+
+It automatically fills missing tensor shapes in the graph.
+
+Why this step is required:
+
+Static quantization requires **fully defined tensor shapes** to calculate calibration ranges.
+
+Example usage:
+
+```
+python3 4_preprocess_model.py --model_path model_opset17.onnx
+```
+
+Output:
+
+```
+model_preprocessed.onnx
+```
+
+---
+
+# Step 5 — Static INT8 Quantization
+
+Script:
+
+```
+5_quantize_static.py
+```
+
+Purpose:
+
+This script performs **static INT8 quantization** using calibration images.
+
+It:
+
+* Calculates activation ranges
+* Quantizes weights
+* Inserts QDQ nodes into the model graph
+
+Quantization format used:
+
+**QDQ (Quantize-Dequantize)**
+
+Example usage:
+
+```
+python3 5_quantize_static.py \
+--model_path model_preprocessed.onnx \
+--calib_dir /path/to/calibration_images/
+```
+
+Output:
+
+```
+model_int8.onnx
+```
+
+---
+
+# Step 6 — Verify Quantized Model
+
+Script:
+
+```
+6_verify_model.py
+```
+
+Purpose:
+
+This script verifies that the quantized model runs correctly.
+
+Checks performed:
+
+* Model loading in ONNX Runtime
+* Inference execution
+* Output tensor shape validation
+* Runtime error detection
+
+Example usage:
+
+```
+python3 6_verify_model.py --model_path model_int8.onnx
+```
+
+---
+
+# Step 7 — Accuracy Comparison
+
+Script:
+
+```
+7_accuracy_report.py
+```
+
+Purpose:
+
+Compares **FP32 vs INT8 classification outputs**.
+
+Validation includes:
+
+* Top-1 class prediction comparison
+* Probability distribution similarity
+* Performance benchmarking
+
+This ensures quantization **does not significantly impact classification accuracy**.
+
+Example usage:
+
+```
+python3 7_accuracy_report.py \
+--fp32_model model_preprocessed.onnx \
+--int8_model model_int8.onnx \
+--image_dir /path/to/test_images/
+```
+
+---
+
+# Final Output
+
+After completing the pipeline, you will obtain:
+
+| Model      | Description                          |
+| ---------- | ------------------------------------ |
+| FP32 Model | Original classification model        |
+| INT8 Model | Optimized model for faster inference |
+
+Benefits:
+
+* Faster inference (1.5x – 2x speedup)
+* Reduced model size
+* Efficient edge deployment
+
+---
+
+# Recommended Execution Order
+
+Always run the scripts in the following order:
+
+```
+1_check_model.py
+2_find_nodes.py
+3_upgrade_opset.py
+4_preprocess_model.py
+5_quantize_static.py
+6_verify_model.py
+7_accuracy_report.py
+```
+
+---
+
+# Notes
+
+* Use **50–200 calibration images** for accurate quantization
+* Calibration images should represent the real data distribution
+* Always verify accuracy before deployment
