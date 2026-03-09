@@ -46,7 +46,7 @@ classification/
 ├── 6_verify_cls_static.py
 ├── 7_cls_accuracy_report.py
 └── 7_benchmark_cls.py
-``` `
+``` 
 
 Script Descriptions
 ===================
